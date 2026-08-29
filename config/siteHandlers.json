@@ -1,6 +1,6 @@
 {
-  "version": "1.2.8",
-  "lastUpdated": "2026-07-04T13:56:47.698Z",
+  "version": "1.2.9",
+  "lastUpdated": "2026-08-29T04:47:24Z",
   "sites": [
     {
       "name": "ChatGPT",
@@ -1487,10 +1487,10 @@
     {
       "name": "文心一言",
       "url": "https://yiyan.baidu.com/chat",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
-      "hidden": true,
+      "hidden": false,
       "supportIframe": true,
       "searchHandler": {
         "steps": [
@@ -2389,7 +2389,7 @@
       "enabled": false,
       "supportUrlQuery": false,
       "region": "China",
-      "hidden": false,
+      "hidden": true,
       "supportIframe": true,
       "note": "普通对话和 Deep Research 都使用 textarea.message-input-textarea；回答主体在 .qwen-markdown-loose，别用 [class*=\"qwen-markdown\"] 这种宽松选择器。",
       "searchHandler": {
