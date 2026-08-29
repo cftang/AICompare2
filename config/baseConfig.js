@@ -206,11 +206,11 @@ const RemoteConfigManager = {
     // 如果 DEV_CONFIG 对象存在，使用环境配置
     if (typeof DEV_CONFIG !== 'undefined' && DEV_CONFIG.REMOTE_CONFIG_URL) {
       return DEV_CONFIG.IS_PRODUCTION 
-        ? 'https://raw.githubusercontent.com/taoAIGC/AI-Shortcuts/main/config/siteHandlers.json'
+        ? 'https://raw.githubusercontent.com/cftang/AICompare2/main/config/siteHandlers.json'
         : DEV_CONFIG.REMOTE_CONFIG_URL;
     }
     // 否则使用默认的生产环境URL
-    return 'https://raw.githubusercontent.com/taoAIGC/AI-Shortcuts/main/config/siteHandlers.json';
+    return 'https://raw.githubusercontent.com/cftang/AICompare2/main/config/siteHandlers.json';
   },
   
   // 检查并更新配置
@@ -611,4 +611,3 @@ else {
 }
 
 } // 结束重复声明检查的 else 块
-

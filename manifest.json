@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "2.15.10",
+  "version": "2.15.11",
   "description": "__MSG_extDescription__",
   "permissions": [
     "storage",
@@ -132,4 +132,4 @@
   "omnibox": {
     "keyword": "ai"
   }
-} 
+}
