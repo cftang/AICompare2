@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                        (window.top !== window); // 如果被嵌入，可能是在侧边栏中
 
     // 从存储中获取列数设置
-    let { preferredColumns = '3' } = await chrome.storage.sync.get('preferredColumns');
+    let { preferredColumns = '2' } = await chrome.storage.sync.get('preferredColumns');
     
     // 如果在侧边栏中打开，临时使用1列
     if (isSidePanel || window.innerWidth < 500) {
