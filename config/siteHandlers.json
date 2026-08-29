@@ -1,11 +1,11 @@
 {
-  "version": "1.2.9",
-  "lastUpdated": "2026-08-29T04:47:24Z",
+  "version": "1.2.10",
+  "lastUpdated": "2026-08-29T06:07:53Z",
   "sites": [
     {
       "name": "ChatGPT",
       "url": "https://chatgpt.com/",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "US",
       "hidden": false,
@@ -181,7 +181,7 @@
     {
       "name": "Gemini",
       "url": "https://gemini.google.com/",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "US",
       "hidden": false,
@@ -570,7 +570,7 @@
     {
       "name": "Claude",
       "url": "https://claude.ai/chat",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "US",
       "hidden": false,
@@ -753,7 +753,7 @@
     {
       "name": "AI Studio",
       "url": "https://aistudio.google.com/",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "US",
       "hidden": true,
@@ -856,7 +856,7 @@
     {
       "name": "DeepSeek",
       "url": "https://chat.deepseek.com/",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -1117,7 +1117,7 @@
     {
       "name": "豆包",
       "url": "https://doubao.com/chat",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -1632,7 +1632,7 @@
     {
       "name": "元宝",
       "url": "https://yuanbao.tencent.com/chat/",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -1913,7 +1913,7 @@
     {
       "name": "智谱",
       "url": "https://chatglm.cn/main/alltoolsdetail?lang=zh",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -2216,7 +2216,7 @@
     {
       "name": "千问",
       "url": "https://www.qianwen.com/",
-      "enabled": false,
+      "enabled": true,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -3216,7 +3216,7 @@
     {
       "name": "MiniMax",
       "url": "https://agent.minimax.io/",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": true,
@@ -3319,7 +3319,7 @@
     {
       "name": "Manus",
       "url": "https://manus.im/app",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "Global",
       "hidden": true,
@@ -3407,7 +3407,7 @@
     {
       "name": "Nano Banana",
       "url": "https://labs.google/fx/zh/tools/flow",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "Global",
       "hidden": true,
