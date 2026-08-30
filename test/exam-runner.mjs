@@ -8,25 +8,36 @@ const COLS = 73, ROWS = 28;
 const MAX_WAIT_MS = 300000;
 const POLL_MS = 2000;
 
-const INSTR = '请先给出简要解析，然后在最后单独一行输出 ANSWER 加英文冒号加答案字母（多选用逗号分隔）。';
+const INSTR = '请先给出详细解析，然后在最后单独一行输出 ANSWER 加英文冒号加答案字母（多选用逗号分隔）。';
 
 function log(s) { fs.appendFileSync(PROG, s + '\n', 'utf8'); console.log(s); }
 
-const raw = fs.readFileSync(SRC, 'utf8');
-const blocks = raw.split(/\r?\n(?=(?:单选题|多选题))/);
+const raw = fs.readFileSync(SRC, 'utf8').replace(/^﻿/, '');
+const blocks = raw.split(/\r?\n(?=(?:单选题|多选题)(?:\r?\n|$))/);
 const questions = [];
-const seen = new Set();
+const seenBodies = new Set();
+const usedNums = new Set();
 for (const b of blocks) {
-  const m = b.match(/第(\d+)\/52题/);
-  if (!m) continue;
-  const num = parseInt(m[1], 10);
-  if (seen.has(num)) continue;
-  const type = b.startsWith('多选') ? '多选题' : '单选题';
   const lines = b.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const idx = lines.findIndex(l => /第\d+\/52题/.test(l));
-  const body = lines.slice(idx + 1).join('\n');
-  if (!body) continue;
-  seen.add(num);
+  if (!/^(单选题|多选题)/.test(lines[0])) continue;
+  const type = lines[0].startsWith('多选') ? '多选题' : '单选题';
+  let num = null, body = null;
+  const marker = lines.findIndex(l => /第(\d+)\/\d+题/.test(l));
+  if (marker >= 0) {
+    num = parseInt(lines[marker].match(/第(\d+)\/\d+题/)[1], 10);
+    body = lines.slice(marker + 1).join('\n');
+  } else {
+    const stem = lines.findIndex(l => /^(\d+)[、.．]/.test(l));
+    if (stem < 0) continue;
+    num = parseInt(lines[stem].match(/^(\d+)[、.．]/)[1], 10);
+    body = lines.slice(stem).join('\n');
+  }
+  if (num === null || !body) continue;
+  const sig = body.replace(/\s+/g, '');
+  if (seenBodies.has(sig)) continue;
+  seenBodies.add(sig);
+  while (usedNums.has(num)) num++;
+  usedNums.add(num);
   questions.push({ num, type, body });
 }
 log(`parsed ${questions.length} questions`);
@@ -52,33 +63,56 @@ function cleanLines(lines) {
 }
 
 function norm(s) { return s.replace(/\s+/g, ''); }
+function stripBox(s) { return s.replace(/^[\s╹┃│▏▕]+/, '').replace(/[\s╹]+$/, ''); }
+function normLine(s) { return norm(stripBox(s)); }
 
 function extract(allLines, q) {
-  const bodyLines = q.body.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const last = norm(bodyLines[bodyLines.length - 1]);
-  let start = -1;
-  // prefer an exact full-line match of the final option (echoed prompt box)
-  for (let i = allLines.length - 1; i >= 0; i--) {
-    if (last && norm(allLines[i]) === last) { start = i; break; }
-  }
-  if (start < 0) {
-    for (let i = allLines.length - 1; i >= 0; i--) {
-      const n = norm(allLines[i]);
-      if (last && n.length && n.includes(last)) { start = i; break; }
+  const qLines = q.body.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const anchorN = norm(qLines[qLines.length - 1] || '');
+  const qLineSet = new Set(qLines.map(norm).filter(s => s.length > 3));
+  const instrN = norm(INSTR);
+
+  // Candidate anchors: the echoed final option inside the prompt box.
+  // Box-drawing prefixes are stripped, and because the terminal hard-wraps
+  // long options we also test a sliding window of up to 4 joined lines.
+  const anchors = [];
+  for (let i = 0; i < allLines.length; i++) {
+    const n = normLine(allLines[i]);
+    if (!n) continue;
+    if (n === anchorN || (anchorN.length >= 4 && n.includes(anchorN))) { anchors.push(i); continue; }
+    let joined = n;
+    for (let w = 1; w < 4 && i - w >= 0; w++) {
+      joined = normLine(allLines[i - w]) + joined;
+      if (anchorN.length >= 4 && joined.includes(anchorN)) { anchors.push(i); break; }
     }
   }
-  if (start < 0 && last) {
-    const tail = last.slice(-8);
-    for (let i = allLines.length - 1; i >= 0; i--) {
-      if (norm(allLines[i]).includes(tail)) { start = i; break; }
+
+  // Walk anchors newest-first; accept the first slice that yields an ANSWER
+  // line and is free of the echoed instruction/question.
+  const tries = anchors.length ? anchors.slice().reverse() : [-1];
+  let best = null;
+  for (const a of tries) {
+    const cand = cleanLines(allLines.slice(a + 1));
+    while (cand.length) {
+      const n = norm(cand[0]);
+      if (!n) { cand.shift(); continue; }
+      if (n.includes(instrN.slice(0, 18))) { cand.shift(); continue; }
+      if (n === '多选题' || n === '单选题') { cand.shift(); continue; }
+      if (qLineSet.has(n)) { cand.shift(); continue; }
+      if (/^\d+[、.．]/.test(n)) { cand.shift(); continue; }
+      break;
     }
+    const text = cand.join('\n').trim();
+    if (!text) continue;
+    if (!best) best = text;
+    const clean = !norm(text).includes(instrN.slice(0, 18));
+    if (/ANSWER\s*[:：]/.test(text) && clean) { best = text; break; }
   }
-  const slice = start >= 0 ? allLines.slice(start + 1) : allLines;
-  const body = cleanLines(slice).join('\n').trim();
+
   const joined = allLines.join('\n');
   const ms = [...joined.matchAll(/ANSWER\s*[:：]\s*([A-Da-d](?:\s*[,，、\/]\s*[A-Da-d])*)/g)];
   const ans = ms.length ? ms[ms.length - 1][1].toUpperCase().replace(/[\s，、\/]+/g, ',') : null;
-  return { body, ans };
+  return { body: best || '', ans };
 }
 
 async function connect() {
