@@ -1,6 +1,6 @@
 {
-  "version": "1.2.10",
-  "lastUpdated": "2026-08-29T06:07:53Z",
+  "version": "1.2.11",
+  "lastUpdated": "2026-08-30T05:30:00Z",
   "sites": [
     {
       "name": "ChatGPT",
@@ -2216,7 +2216,7 @@
     {
       "name": "千问",
       "url": "https://www.qianwen.com/",
-      "enabled": true,
+      "enabled": false,
       "supportUrlQuery": false,
       "region": "China",
       "hidden": false,
@@ -3541,6 +3541,76 @@
       },
       "icon": "www.google.com.png",
       "type": "image"
+    },
+    {
+      "name": "aishell",
+      "url": "https://devstation.connect.huaweicloud.com/aishell?utm_source=grow",
+      "enabled": true,
+      "supportUrlQuery": false,
+      "region": "China",
+      "hidden": false,
+      "supportIframe": true,
+      "searchHandler": {
+        "steps": [
+          {
+            "action": "focus",
+            "selector": "textarea.xterm-helper-textarea",
+            "description": "聚焦xterm终端输入textarea",
+            "waitForElement": true,
+            "maxAttempts": 10,
+            "retryInterval": 200
+          },
+          {
+            "action": "pasteText",
+            "selector": "textarea.xterm-helper-textarea",
+            "description": "以paste事件写入查询内容（xterm终端忽略合成input事件）",
+            "waitForElement": true,
+            "maxAttempts": 10,
+            "retryInterval": 200
+          },
+          {
+            "action": "wait",
+            "duration": 200,
+            "description": "等待xterm处理输入",
+            "maxAttempts": 10,
+            "retryInterval": 200
+          },
+          {
+            "action": "sendKeys",
+            "selector": "textarea.xterm-helper-textarea",
+            "keys": "Enter",
+            "description": "发送回车键提交命令",
+            "waitForElement": true,
+            "maxAttempts": 10,
+            "retryInterval": 200
+          }
+        ]
+      },
+      "fileUploadHandler": {
+        "steps": [
+          {
+            "action": "focus",
+            "selector": "textarea.xterm-helper-textarea",
+            "description": "聚焦xterm终端输入框准备文件粘贴",
+            "waitForElement": true,
+            "maxAttempts": 10,
+            "retryInterval": 200
+          },
+          {
+            "action": "wait",
+            "duration": 200,
+            "description": "等待200ms确保聚焦完成",
+            "maxAttempts": 10,
+            "retryInterval": 200
+          },
+          {
+            "action": "paste",
+            "description": "执行文件粘贴操作"
+          }
+        ]
+      },
+      "icon": "devstation.connect.huaweicloud.com.png",
+      "type": "information"
     }
   ]
 }

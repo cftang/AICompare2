@@ -121,6 +121,9 @@ async function executeSiteHandler(query, handlerConfig) {
         case 'custom':
           await executeCustom(step, query);
           break;
+        case 'pasteText':
+          await executePasteText(step, query);
+          break;
         case 'paste':
           await executePaste(step);
           break;
@@ -141,6 +144,43 @@ async function executeSiteHandler(query, handlerConfig) {
   }
 
   console.log('配置化处理器执行完成');
+}
+
+async function executePasteText(step, query) {
+  let element = null;
+  const selectors = Array.isArray(step.selector) ? step.selector : [step.selector];
+
+  const maxAttempts = step.maxAttempts || (step.waitForElement ? 5 : 1);
+  const retryInterval = step.retryInterval || 200;
+  let attempts = 0;
+
+  const tryPasteText = async () => {
+    for (const selector of selectors) {
+      element = document.querySelector(selector);
+      if (element) break;
+    }
+    if (!element) {
+      attempts++;
+      if (attempts < maxAttempts && (step.waitForElement || step.maxAttempts)) {
+        await new Promise(resolve => setTimeout(resolve, retryInterval));
+        return tryPasteText();
+      }
+      throw new Error(`未找到任何元素，尝试的选择器: ${selectors.join(', ')}`);
+    }
+  };
+
+  await tryPasteText();
+
+  element.focus();
+  const dataTransfer = new DataTransfer();
+  dataTransfer.setData('text/plain', query);
+  const pasteEvent = new ClipboardEvent('paste', {
+    clipboardData: dataTransfer,
+    bubbles: true,
+    cancelable: true
+  });
+  element.dispatchEvent(pasteEvent);
+  console.log('已通过paste事件写入查询内容:', selectors.join(', '));
 }
 
 // 执行粘贴操作

@@ -105,7 +105,15 @@
 ### 🤖 Supported AI sites (examples)
 
 Configured in `siteHandlers.json` (enable/disable per site):  
-ChatGPT, Gemini, Grok, Claude, AI Studio, DeepSeek, 豆包, 秘塔AI, 文心一言, 元宝, Kimi, 千问, Qwen, Copilot, POE, Perplexity, Bing, Google, 百度, 小红书, etc. (and more; some may be hidden or region-specific.)
+ChatGPT, Gemini, Grok, Claude, AI Studio, DeepSeek, 豆包, 秘塔AI, 文心一言, 元宝, Kimi, 千问, Qwen, Copilot, POE, Perplexity, Bing, Google, 百度, 小红书, aishell (华为云 DevStation AI Shell), etc. (and more; some may be hidden or region-specific.)
+
+#### aishell (terminal-based site) integration notes
+
+- URL: `https://devstation.connect.huaweicloud.com/aishell?utm_source=grow` (region: China, iframe-capable).
+- aishell renders an **xterm.js terminal**, not a normal chat input. The hidden `textarea.xterm-helper-textarea` ignores synthetic `input`/`value` writes, so a new **`pasteText`** action was added to `iframe/inject.js`: it focuses the helper textarea and dispatches a `ClipboardEvent('paste')` carrying the query via `DataTransfer`. xterm reads paste events (including multiline text, kept intact by bracketed paste).
+- Handler flow: `focus` → `pasteText` → `wait 200ms` → `sendKeys Enter` (synthetic `keydown` with `keyCode: 13`; xterm emits `\r` to submit).
+- Verified end-to-end via CDP (`--remote-debugging-port=9222` + `Extensions.loadUnpacked` with `--enable-unsafe-extension-debugging`; note: `--load-extension` is ignored by branded Chrome 137+): a multiline MindSpore multi-choice question was submitted and aishell (glm-5.2) answered correctly (A: `load_param_into_net`, B: `load_checkpoint`).
+- Troubleshooting: site configs are cached in `chrome.storage.local.remoteSiteHandlers` and only re-seeded from the bundled JSON when absent. After editing `siteHandlers.json`, clear that key (or reinstall) and reload the extension, otherwise stale handler steps keep running.
 
 ### ❤️ Loved by users worldwide
 
