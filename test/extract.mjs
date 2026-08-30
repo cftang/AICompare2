@@ -178,3 +178,20 @@ export function entryMd(q, ansText, bodyText, rawText) {
   return `\n## 第${q.num}题（${q.type}）\n\n${q.body}\n\n**答案：** ${ansText || '未识别'}\n\n` +
     `<details><summary>aishell 回答</summary>\n\n\`\`\`\n${bodyText}\n\`\`\`\n\n</details>\n${rawBlock}\n---\n`;
 }
+
+// Classify the footer of the visible screen before submitting a question.
+//   'idle'   — plain prompt, safe to paste and press Enter.
+//   'busy'   — a previous request is still streaming; wait.
+//   'stuck'  — a slash command reached the box. The footer switches to
+//              "enter execute" and Enter no longer submits, so pastes silently
+//              append and the question would record a 2-line non-answer. No
+//              programmatic recovery exists (trusted key events do not reach the
+//              TUI and control bytes are ignored), so the run must stop.
+//   'unknown'— no prompt drawn yet; not evidence of breakage.
+export function promptState(visibleText) {
+  if (visibleText.includes('enter execute') || visibleText.includes('No matching items')) return 'stuck';
+  if (visibleText.includes('esc cancel')) return 'busy';
+  if (visibleText.includes('enter send')) return 'idle';
+  return 'unknown';
+}
+

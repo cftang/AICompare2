@@ -27,14 +27,32 @@ A conventional emulator only preserves a row once it scrolls off the top of the 
 
 Alongside each render the runner archives `qNN.frames.json`, the undecoded stdout frames. The render is only as good as `vt.mjs`; the frames allow any future emulator fix to be replayed offline without re-querying the model.
 
+## Pre-submit guard
+
+If a slash command ever reaches the input box (a question beginning with `/`, or a stray `/help`), aishell switches it into command mode: the footer changes from `enter send` to `enter execute`, `No matching items` appears, and the box **never clears again**. Subsequent pastes silently append to the stuck text and Enter never submits, so the runner used to "succeed" in ~24 s while capturing 2 lines. There is no programmatic escape — trusted `Input.dispatchKeyEvent` (ctrl+c, Escape) does not reach the TUI at all, and pasted control bytes (`\x03`, `\x7f`, `\x15`) are ignored.
+
+So `waitReady()` classifies the footer before every submit via `promptState()`:
+
+| State | Footer marker | Action |
+|---|---|---|
+| `idle` | `enter send` | submit |
+| `busy` | `esc cancel` | wait, poll again |
+| `stuck` | `enter execute` / `No matching items` | abort the whole run |
+| `unknown` | none of the above | wait; submit anyway on timeout |
+
+On `stuck` the runner logs `Q<N> ABORT` and stops **without writing an entry**, so the question is picked up again on the next resume. Clearing the box by hand in the browser is the only fix.
+
+This one check reads the **DOM** (`.xterm-rows` innerText), not the WS stream. An idle prompt emits no stdout frames at all, so a quietly stuck box is indistinguishable from a healthy one in the stream; the DOM's missing scrollback is irrelevant when only the bottom rows matter.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `vt.mjs` | VT100/xterm emulator: cursor moves, erase line/screen/chars, insert/delete lines, scroll regions (CSI r/S/T/L/M), backspace, tabs, OSC/DCS skip, CJK wide-char width, and repaint-safe transcript capture (see above). |
 | `vt-test.mjs` | Unit tests for the transcript capture. Run with `node vt-test.mjs`; exits non-zero on failure. |
-| `extract.mjs` | Shared question parsing, answer extraction (`extract` / `extractRaw`), and Markdown entry template. Imported by all three scripts below so their logic can never drift apart. |
-| `exam-runner.mjs` | Orchestrator. Parses the exam txt, connects to the aishell iframe target via CDP, submits each question through the extension's isolated world (`getSiteHandler` / `executeSiteHandler` with the `pasteText` handler), polls the VT-reconstructed screen until the answer is stable, extracts the `ANSWER:` line + explanation, appends to the Markdown file, and archives each render as `qNN.txt` plus its undecoded frames as `qNN.frames.json`. Resumes from already-answered questions on restart. |
+| `extract.mjs` | Shared question parsing, answer extraction (`extract` / `extractRaw`), the pre-submit prompt classifier (`promptState`), and the Markdown entry template. Imported by all three scripts below so their logic can never drift apart. |
+| `extract-test.mjs` | Unit tests for `promptState`. Run with `node extract-test.mjs`; exits non-zero on failure. |
+| `exam-runner.mjs` | Orchestrator. Parses the exam txt, connects to the aishell iframe target via CDP, checks the prompt is accepting input (see *Pre-submit guard*), submits each question through the extension's isolated world (`getSiteHandler` / `executeSiteHandler` with the `pasteText` handler), polls the VT-reconstructed screen until the answer is stable, extracts the `ANSWER:` line + explanation, appends to the Markdown file, and archives each render as `qNN.txt` plus its undecoded frames as `qNN.frames.json`. Resumes from already-answered questions on restart. |
 | `start-exam.ps1` | Wrapper that launches the runner detached in the background (direct `Start-Process` from the tool shell silently fails to spawn; a `.ps1` file works). Paths are relative to this directory. |
 | `start-exam0.ps1` | Same wrapper preset for the exam0 source/output paths. |
 | `rebuild-from-raw.mjs` | Regenerates a complete answer sheet offline from the archived raw renders + progress log, without re-querying aishell. Use when extraction needs fixing after a run. Args: `<source.txt> <output.md> <progress.log> <raw-dir>`. |
@@ -132,3 +150,5 @@ Q39 in exam0 was re-captured after the transcript fix, so its text is a later ge
 - `executeSiteHandler` must run in the extension **isolated world** (context origin `chrome-extension://...`, usually contextId 2), not the page's main world.
 - xterm ignores synthetic `input` events / `.value` writes; the extension's `pasteText` action (ClipboardEvent with a DataTransfer) is what works, including multiline text.
 - The Markdown in an answer is styled with SGR escapes, which the emulator drops: headings arrive as plain text and bold/inline-code markers vanish. aishell's soft wraps also become real newlines, since the capture is a 73-column character grid. Neither is recoverable from the stream.
+- The 73-column wrap is fixed server-side. Widening the browser window (`Browser.setWindowBounds`) or forcing a wider `.xterm` / `.terminal` / `.web-terminal-container` chain leaves the PTY at 73 columns, so hard wraps cannot be avoided.
+- There is no raw-text side channel. Besides stdout (`0x000000fd`) the socket carries only 8-byte binary keepalives on `0x00070000` and zero-length frames on `0x000006fc`; the VT-rendered TUI output is the only content available.

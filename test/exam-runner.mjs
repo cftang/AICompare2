@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { Term } from './vt.mjs';
-import { INSTR, extract, parseQuestions, entryMd } from './extract.mjs';
+import { INSTR, extract, parseQuestions, entryMd, promptState } from './extract.mjs';
 
 const SRC = process.argv[2] || 'C:\\Users\\thinkpad\\Downloads\\infer\\exam1.txt';
 const OUT = process.argv[3] || 'c:\\tmp\\exam1answer.md';
@@ -46,28 +46,60 @@ async function connect() {
   await call('Runtime.enable');
   await new Promise(r => setTimeout(r, 1800));
   if (!isoCtx) throw new Error('isolated world not found');
+  // stdout frames only, base64 as received — the ground truth for offline
+  // re-rendering when the VT emulator is improved
+  const stdout = () => frames.filter(d => {
+    const b = Buffer.from(d, 'base64');
+    return b.length >= 20 && b.readUInt32BE(4) === 0xfd;
+  });
+  const renderTerm = () => {
+    const term = new Term(COLS, ROWS);
+    // Decode with a streaming TextDecoder: a multi-byte UTF-8 character split
+    // across two WS frames would otherwise corrupt into replacement chars.
+    const td = new TextDecoder('utf-8');
+    for (const d of frames) {
+      const b = Buffer.from(d, 'base64');
+      if (b.length < 20 || b.readUInt32BE(4) !== 0xfd) continue;
+      term.write(td.decode(b.subarray(20), { stream: true }));
+    }
+    term.write(td.decode());
+    return { all: term.allLines(), visible: term.visibleLines() };
+  };
   return {
     ws,
     resetFrames: () => { frames = []; },
     frameCount: () => frames.length,
-    // stdout frames only, base64 as received — the ground truth for offline
-    // re-rendering when the VT emulator is improved
-    stdoutFrames: () => frames.filter(d => {
-      const b = Buffer.from(d, 'base64');
-      return b.length >= 20 && b.readUInt32BE(4) === 0xfd;
-    }),
-    render: () => {
-      const term = new Term(COLS, ROWS);
-      // Decode with a streaming TextDecoder: a multi-byte UTF-8 character split
-      // across two WS frames would otherwise corrupt into replacement chars.
-      const td = new TextDecoder('utf-8');
-      for (const d of frames) {
-        const b = Buffer.from(d, 'base64');
-        if (b.length < 20 || b.readUInt32BE(4) !== 0xfd) continue;
-        term.write(td.decode(b.subarray(20), { stream: true }));
+    stdoutFrames: stdout,
+    render: renderTerm,
+    // The input box must be in plain "enter send" mode. Once a slash command
+    // reaches it the footer switches to "enter execute" / "No matching items"
+    // and the box stays stuck: later pastes only append text and Enter never
+    // submits, so the question would "succeed" with a 2-line answer.
+    //
+    // Read the footer from the DOM, not from the WS stream: an idle prompt emits
+    // no stdout frames at all, so a quietly stuck box looks identical to a
+    // healthy one there. The DOM's lack of scrollback does not matter here —
+    // only the current bottom rows are needed.
+    screenText: async () => {
+      const r = await call('Runtime.evaluate', {
+        expression: `(() => { const e = document.querySelector('.xterm-rows'); return e ? e.innerText : ''; })()`,
+        returnByValue: true
+      });
+      return String(r.result?.result?.value || '');
+    },
+    waitReady: async function (timeoutMs = 120000) {
+      const start = Date.now();
+      let state = 'unknown';
+      for (;;) {
+        state = promptState(await this.screenText());
+        if (state === 'idle') return { ok: true, state };
+        if (state === 'stuck') return { ok: false, state };
+        if (Date.now() - start >= timeoutMs) break;
+        await new Promise(r => setTimeout(r, POLL_MS));
       }
-      term.write(td.decode());
-      return { all: term.allLines(), visible: term.visibleLines() };
+      // A prompt that never settled is unlucky timing rather than proof of
+      // breakage; let the question through and let the poll loop judge it.
+      return { ok: true, state };
     },
     submit: async (query) => {
       const r = await call('Runtime.evaluate', {
@@ -105,8 +137,17 @@ for (const q of todo) {
   try {
     const s = await ensure();
     s.resetFrames();
+    const ready = await s.waitReady();
+    if (!ready.ok) {
+      // Fatal for the whole run, not just this question: the box stays stuck
+      // until the operator clears it. Stop without writing an entry so a later
+      // resume picks this question up again.
+      log(`Q${q.num} ABORT: input box in slash-command mode — clear it in the browser and re-run`);
+      break;
+    }
+    s.resetFrames();
     await s.submit(INSTR + '\n' + q.type + '\n' + q.body);
-    log(`--- Q${q.num} (${q.type}) submitted`);
+    log(`--- Q${q.num} (${q.type}) submitted [${ready.state}]`);
 
     const start = Date.now();
     let stable = 0, lastSig = '', finished = false;
