@@ -58,11 +58,15 @@ async function connect() {
     }),
     render: () => {
       const term = new Term(COLS, ROWS);
+      // Decode with a streaming TextDecoder: a multi-byte UTF-8 character split
+      // across two WS frames would otherwise corrupt into replacement chars.
+      const td = new TextDecoder('utf-8');
       for (const d of frames) {
         const b = Buffer.from(d, 'base64');
         if (b.length < 20 || b.readUInt32BE(4) !== 0xfd) continue;
-        term.write(b.subarray(20).toString('utf8'));
+        term.write(td.decode(b.subarray(20), { stream: true }));
       }
+      term.write(td.decode());
       return { all: term.allLines(), visible: term.visibleLines() };
     },
     submit: async (query) => {
